@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MarketAgent</title>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --border: #2a2a2a;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --text: #e4e4e7;
+    --muted: #71717a;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  header { border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+  header span { color: var(--muted); font-size: 0.85rem; }
+
+  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 57px); }
+
+  nav { border-right: 1px solid var(--border); padding: 16px 0; }
+  nav button { width: 100%; text-align: left; padding: 10px 20px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; transition: all 0.15s; border-left: 3px solid transparent; }
+  nav button:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  nav button.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,212,255,0.06); }
+
+  main { padding: 24px; overflow-y: auto; }
+
+  .tab { display: none; }
+  .tab.active { display: block; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 14px; color: var(--accent); }
+
+  .score-ring { font-size: 3rem; font-weight: 800; }
+  .score-ring.good { color: var(--green); }
+  .score-ring.ok { color: var(--yellow); }
+  .score-ring.bad { color: var(--red); }
+
+  .issue { color: var(--red); margin: 4px 0; font-size: 0.875rem; }
+  .rec { color: var(--yellow); margin: 4px 0; font-size: 0.875rem; }
+  .issue::before { content: "✗  "; }
+  .rec::before { content: "→  "; }
+
+  button.btn { background: var(--accent2); color: white; border: none; border-radius: 6px; padding: 9px 18px; cursor: pointer; font-size: 0.875rem; font-weight: 600; transition: opacity 0.15s; }
+  button.btn:hover { opacity: 0.85; }
+  button.btn.secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+  button.btn.accent { background: var(--accent); color: #000; }
+
+  input, select, textarea { background: #1f1f1f; border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 0.875rem; width: 100%; margin-bottom: 12px; }
+  textarea { resize: vertical; min-height: 80px; }
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+  .badge.green { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge.yellow { background: rgba(234,179,8,0.15); color: var(--yellow); }
+  .badge.red { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge.dim { background: rgba(255,255,255,0.05); color: var(--muted); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  #chat-messages { height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 16px; background: #111; border-radius: 8px; margin-bottom: 12px; }
+  .msg { max-width: 80%; padding: 10px 14px; border-radius: 10px; font-size: 0.875rem; line-height: 1.5; }
+  .msg.user { align-self: flex-end; background: var(--accent2); }
+  .msg.agent { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); white-space: pre-wrap; }
+
+  .chat-input-row { display: flex; gap: 8px; }
+  .chat-input-row input { margin-bottom: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  th { text-align: left; padding: 8px 12px; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .kv-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-key { color: var(--muted); }
+
+  .platform-toggle { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .platform-toggle:last-child { border-bottom: none; }
+  .toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--border); cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0; border: none; }
+  .toggle.on { background: var(--accent2); }
+  .toggle::after { content: ''; position: absolute; width: 14px; height: 14px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; }
+  .toggle.on::after { left: 19px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MarketAgent</h1>
+  <span id="site-label">{{ config.website or 'No website set' }}</span>
+  <div style="margin-left:auto; display:flex; gap:8px;">
+    <span class="badge yellow">Autonomy {{ config.autonomy_level }}</span>
+  </div>
+</header>
+
+<div class="layout">
+  <nav>
+    <button class="active" onclick="showTab('dashboard')">Dashboard</button>
+    <button onclick="showTab('seo')">SEO Audit</button>
+    <button onclick="showTab('chat')">AI Chat</button>
+    <button onclick="showTab('content')">Content Generator</button>
+    <button onclick="showTab('platforms')">Platforms</button>
+    <button onclick="showTab('settings')">Settings</button>
+  </nav>
+
+  <main>
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="tab active">
+      <div class="card">
+        <h2>Quick Actions</h2>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn accent" onclick="runScan()">Scan Website</button>
+          <button class="btn" onclick="runAnalysis()">AI Analysis</button>
+          <button class="btn secondary" onclick="showTab('chat')">Open Chat</button>
+        </div>
+      </div>
+      <div id="dashboard-scan" class="grid2">
+        <div class="card" style="text-align:center;">
+          <h2>SEO Score</h2>
+          <div class="score-ring dim" id="score-display">—</div>
+          <div style="color:var(--muted);font-size:0.8rem;margin-top:6px;" id="score-label">Run a scan to see your score</div>
+        </div>
+        <div class="card">
+          <h2>Hosting</h2>
+          <div id="hosting-info" style="color:var(--muted);">Run a scan to detect hosting.</div>
+        </div>
+      </div>
+      <div class="card" id="analysis-panel" style="display:none;">
+        <h2>AI Analysis</h2>
+        <div id="analysis-content" style="white-space:pre-wrap;font-size:0.875rem;line-height:1.6;"></div>
+      </div>
+    </div>
+
+    <!-- SEO -->
+    <div id="tab-seo" class="tab">
+      <div class="card">
+        <h2>SEO Audit</h2>
+        <button class="btn accent" onclick="runScan()">Run Scan</button>
+      </div>
+      <div id="seo-results"></div>
+    </div>
+
+    <!-- CHAT -->
+    <div id="tab-chat" class="tab">
+      <div class="card">
+        <h2>Chat with MarketAgent</h2>
+        <div id="chat-messages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chat-input" placeholder="Ask anything about your SEO, marketing, or campaigns..." onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="btn" onclick="sendChat()">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div id="tab-content" class="tab">
+      <div class="card">
+        <h2>Social Media Content Generator</h2>
+        <label>Platform</label>
+        <select id="content-platform">
+          <option value="twitter">Twitter / X</option>
+          <option value="instagram">Instagram</option>
+          <option value="linkedin">LinkedIn</option>
+          <option value="facebook">Facebook</option>
+        </select>
+        <label>Topic or message</label>
+        <textarea id="content-topic" placeholder="e.g. New product launch, blog post about SEO tips, brand awareness..."></textarea>
+        <button class="btn accent" onclick="generateContent()">Generate</button>
+        <div id="content-result" style="margin-top:16px; display:none;" class="card">
+          <h2>Generated Content</h2>
+          <div id="content-output" style="white-space:pre-wrap;font-size:0.875rem;line-height:1.6;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLATFORMS -->
+    <div id="tab-platforms" class="tab">
+      <div class="grid2">
+        <div class="card">
+          <h2>Ad Platforms</h2>
+          <div id="ad-platforms-list">Loading...</div>
+        </div>
+        <div class="card">
+          <h2>Social Platforms</h2>
+          <div id="social-platforms-list">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="tab-settings" class="tab">
+      <div class="card">
+        <h2>General Settings</h2>
+        <label>Website URL</label>
+        <input type="text" id="s-website" placeholder="https://yoursite.com">
+        <label>Anthropic API Key</label>
+        <input type="password" id="s-api-key" placeholder="sk-ant-...">
+        <label>Autonomy Level</label>
+        <select id="s-autonomy">
+          <option value="0">0 — Manual (recommendations only)</option>
+          <option value="1">1 — Semi-auto (propose + approve)</option>
+          <option value="2">2 — Auto (low-risk auto, high-risk prompt)</option>
+          <option value="3">3 — Full auto</option>
+        </select>
+        <button class="btn accent" onclick="saveSettings()">Save Settings</button>
+      </div>
+
+      <div class="card">
+        <h2>Ad Platform Credentials</h2>
+        <div id="ad-settings"></div>
+      </div>
+
+      <div class="card">
+        <h2>Social Platform Credentials</h2>
+        <div id="social-settings"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+let lastScan = null;
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'platforms') loadPlatforms();
+  if (name === 'settings') loadSettings();
+}
+
+async function runScan() {
+  const btn = event.target;
+  btn.innerHTML = '<span class="spinner"></span>Scanning...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/scan', {method:'POST'});
+    lastScan = await r.json();
+    renderScanResults(lastScan);
+  } catch(e) { alert('Scan failed: ' + e); }
+  btn.innerHTML = btn.innerHTML.includes('Scan') ? 'Scan Website' : 'Run Scan';
+  btn.disabled = false;
+}
+
+function renderScanResults(data) {
+  const seo = data.seo || {};
+  const hosting = data.hosting || {};
+
+  // Dashboard
+  const score = seo.score ?? 0;
+  const el = document.getElementById('score-display');
+  el.textContent = seo.error ? 'Error' : score;
+  el.className = 'score-ring ' + (score >= 80 ? 'good' : score >= 60 ? 'ok' : 'bad');
+  document.getElementById('score-label').textContent = seo.error || (score + '/100');
+
+  document.getElementById('hosting-info').innerHTML =
+    `<div class="kv-row"><span class="kv-key">Provider</span><span>${hosting.provider}</span></div>` +
+    `<div class="kv-row"><span class="kv-key">IP</span><span>${hosting.ip || '—'}</span></div>` +
+    `<div class="kv-row"><span class="kv-key">Method</span><span>${hosting.method || '—'}</span></div>`;
+
+  // SEO tab
+  if (!seo.error) {
+    const issues = (seo.issues || []).map(i => `<div class="issue">${i}</div>`).join('');
+    const recs = (seo.recommendations || []).map(r => `<div class="rec">${r}</div>`).join('');
+    const d = seo.data || {};
+    document.getElementById('seo-results').innerHTML = `
+      <div class="card"><h2>Score: ${score}/100</h2>${issues || '<p style="color:var(--green)">No critical issues found</p>'}${recs}</div>
+      <div class="card"><h2>Page Details</h2>
+        <div class="kv-row"><span class="kv-key">Title</span><span>${d.title || '—'}</span></div>
+        <div class="kv-row"><span class="kv-key">H1 tags</span><span>${d.h1_count ?? '—'}</span></div>
+        <div class="kv-row"><span class="kv-key">Images</span><span>${d.images_total ?? 0} total / ${d.images_missing_alt ?? 0} missing alt</span></div>
+        <div class="kv-row"><span class="kv-key">Page size</span><span>${d.page_size_kb ?? '—'} KB</span></div>
+        <div class="kv-row"><span class="kv-key">HTTPS</span><span>${d.https ? '<span class="badge green">Yes</span>' : '<span class="badge red">No</span>'}</span></div>
+        <div class="kv-row"><span class="kv-key">robots.txt</span><span>${d.has_robots_txt ? '<span class="badge green">Found</span>' : '<span class="badge red">Missing</span>'}</span></div>
+        <div class="kv-row"><span class="kv-key">sitemap.xml</span><span>${d.has_sitemap ? '<span class="badge green">Found</span>' : '<span class="badge red">Missing</span>'}</span></div>
+        <div class="kv-row"><span class="kv-key">Canonical</span><span>${d.canonical || '<span class="badge red">Missing</span>'}</span></div>
+      </div>`;
+  }
+}
+
+async function runAnalysis() {
+  if (!lastScan) { alert('Run a scan first.'); return; }
+  const panel = document.getElementById('analysis-panel');
+  const content = document.getElementById('analysis-content');
+  panel.style.display = 'block';
+  content.textContent = 'Analyzing...';
+  const r = await fetch('/api/analyze', {method:'POST'});
+  const data = await r.json();
+  content.textContent = data.analysis || data.error;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  addMessage('user', msg);
+  const thinking = addMessage('agent', '...');
+  const r = await fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({message: msg})});
+  const data = await r.json();
+  thinking.textContent = data.reply;
+}
+
+function addMessage(role, text) {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+async function generateContent() {
+  const platform = document.getElementById('content-platform').value;
+  const topic = document.getElementById('content-topic').value.trim();
+  if (!topic) { alert('Enter a topic.'); return; }
+  const btn = event.target;
+  btn.textContent = 'Generating...';
+  btn.disabled = true;
+  const r = await fetch('/api/generate-content', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({platform, topic})});
+  const data = await r.json();
+  document.getElementById('content-result').style.display = 'block';
+  document.getElementById('content-output').textContent = data.content;
+  btn.textContent = 'Generate';
+  btn.disabled = false;
+}
+
+async function loadPlatforms() {
+  const r = await fetch('/api/platforms');
+  const data = await r.json();
+
+  function renderList(platforms, containerId) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = Object.entries(platforms).map(([key, p]) => {
+      const badge = p.configured && p.enabled ? '<span class="badge green">Ready</span>'
+                  : p.enabled ? '<span class="badge yellow">Needs credentials</span>'
+                  : '<span class="badge dim">Disabled</span>';
+      return `<div class="platform-toggle"><span style="flex:1">${p.platform}</span>${badge}</div>`;
+    }).join('');
+  }
+
+  renderList(data.ads, 'ad-platforms-list');
+  renderList(data.social, 'social-platforms-list');
+}
+
+async function loadSettings() {
+  const r = await fetch('/api/config');
+  const config = await r.json();
+  document.getElementById('s-website').value = config.website || '';
+  document.getElementById('s-autonomy').value = config.autonomy_level ?? 1;
+
+  // Ad settings
+  const adEl = document.getElementById('ad-settings');
+  adEl.innerHTML = Object.entries(config.ads || {}).map(([key, val]) =>
+    `<div class="platform-toggle">
+      <span style="flex:1;font-weight:500">${key.replace('_',' ').replace(/\b\w/g,c=>c.toUpperCase())}</span>
+      <label style="display:flex;align-items:center;gap:6px;margin:0;">
+        <input type="checkbox" id="ads-${key}-enabled" ${val.enabled?'checked':''}>Enabled
+      </label>
+    </div>`
+  ).join('');
+
+  // Social settings
+  const socialEl = document.getElementById('social-settings');
+  socialEl.innerHTML = Object.entries(config.social || {}).map(([key, val]) =>
+    `<div class="platform-toggle">
+      <span style="flex:1;font-weight:500">${key.replace(/\b\w/g,c=>c.toUpperCase())}</span>
+      <label style="display:flex;align-items:center;gap:6px;margin:0;">
+        <input type="checkbox" id="social-${key}-enabled" ${val.enabled?'checked':''}>Enabled
+      </label>
+    </div>`
+  ).join('');
+}
+
+async function saveSettings() {
+  const config = await (await fetch('/api/config')).json();
+  config.website = document.getElementById('s-website').value.trim();
+  config.autonomy_level = parseInt(document.getElementById('s-autonomy').value);
+
+  Object.keys(config.ads || {}).forEach(key => {
+    const cb = document.getElementById(`ads-${key}-enabled`);
+    if (cb) config.ads[key].enabled = cb.checked;
+  });
+  Object.keys(config.social || {}).forEach(key => {
+    const cb = document.getElementById(`social-${key}-enabled`);
+    if (cb) config.social[key].enabled = cb.checked;
+  });
+
+  const apiKey = document.getElementById('s-api-key').value.trim();
+  if (apiKey) config.anthropic_api_key = apiKey;
+
+  await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(config)});
+  document.getElementById('site-label').textContent = config.website || 'No website set';
+  alert('Settings saved.');
+}
+</script>
+</body>
+</html>
